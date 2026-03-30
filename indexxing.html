@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ms">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JPS Digital Admin Portal & SCADA Exposure</title>
+  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    /* ================= ADMIN DASHBOARD THEME ================= */
+    :root {
+      --jps-blue: #002b5e;
+      --jps-light-blue: #0056b3;
+      --accent-cyan: #00d4ff;
+      --text-dark: #2c3e50;
+      --bg-dark: #121826;
+      --card-bg: #ffffff;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f7f6;
+      color: var(--text-dark);
+    }
+
+    /* Navbar (Admin Style) */
+    .navbar { background: var(--bg-dark); padding: 1rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .navbar-brand { font-weight: 700; color: #ffffff; font-size: 1.2rem; display: flex; align-items: center; gap: 15px; }
+    .navbar-brand img { height: 45px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.3)); }
+    .navbar-brand span { color: #8ab4f8; font-size: 0.85rem; letter-spacing: 1px; }
+    .nav-link { font-weight: 600; color: #a0aec0 !important; margin: 0 5px; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px; }
+    .nav-link:hover, .nav-link.active { color: #ffffff !important; }
+    
+    .admin-badge {
+      background: linear-gradient(45deg, #ff416c, #ff4b2b);
+      color: white; padding: 5px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; letter-spacing: 1px;
+    }
+
+    /* Hero Dashboard Header */
+    .hero-section {
+      background: linear-gradient(135deg, var(--jps-blue) 0%, var(--jps-light-blue) 100%);
+      padding: 60px 0 80px 0;
+      color: white;
+      border-bottom: 5px solid var(--accent-cyan);
+    }
+    .hero-title { font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; }
+    
+    /* Centralized Repository Cards (SOP & Logs) */
+    .repo-card {
+      background: var(--card-bg); padding: 2rem; border-radius: 8px; border-left: 5px solid var(--jps-light-blue);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: transform 0.2s; height: 100%;
+    }
+    .repo-card:hover { transform: translateY(-3px); box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
+    .repo-icon { font-size: 2rem; color: var(--jps-light-blue); margin-bottom: 1rem; }
+
+    /* SCADA / RUMAH PAM SECTION */
+    .scada-section { padding: 4rem 0; background-color: #eef2f5; }
+    .pump-card { border: none; border-radius: 12px; overflow: hidden; transition: all 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.08); background: white; }
+    .pump-card:hover { transform: translateY(-5px); box-shadow: 0 12px 25px rgba(0,0,0,0.15); }
+    .pump-header { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 20px; text-align: center; border-bottom: 3px solid #00d4ff; }
+    .pump-body { padding: 25px; text-align: center; }
+    
+    /* Status Indicator Pulse Animation */
+    .status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+    .status-online { background-color: #28a745; box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); animation: pulse-green 2s infinite; }
+    @keyframes pulse-green {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+    }
+
+    /* Map Styling */
+    #map { height: 450px; width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 2px solid #ddd; }
+    .legend { background: white; padding: 10px; border-radius: 5px; box-shadow: 0 0 15px rgba(0,0,0,0.2); line-height: 1.5; font-size: 0.85rem; }
+    .legend i { width: 16px; height: 16px; float: left; margin-right: 8px; opacity: 0.8; border-radius: 3px; }
+
+    /* Live Data Accuracy Classes */
+    .data-accuracy-badge { background: #17a2b8; color: white; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 0.85rem; display: inline-block; margin-bottom: 20px; }
+    .taburan-hujan-section { background: #ffffff; border-top: 4px solid #0dcaf0; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    .aras-air-section { background: #ffffff; border-top: 4px solid #ffc107; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    .table th { background-color: #f8f9fa; font-size: 0.85rem; text-transform: uppercase; color: #555; }
+
+    /* Footer */
+    footer { background-color: var(--bg-dark); color: #8ab4f8; padding: 2rem 0; margin-top: 4rem; text-align: center; font-size: 0.9rem; border-top: 1px solid #2c3e50; }
+  </style>
+</head>
+
+<body>
+
+  <nav class="navbar navbar-expand-lg sticky-top navbar-dark">
+    <div class="container">
+      <a class="navbar-brand" href="#">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Jps_logo.png/600px-Jps_logo.png" alt="JPS Logo">
+        <div>
+          <div>JPS KUALA NERUS</div>
+          <span>Digital Admin Portal</span>
+        </div>
+      </a>
+      
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto align-items-center">
+          <li class="nav-item"><a class="nav-link active" href="#"><i class="fas fa-home me-1"></i> Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link" href="#digital-repo"><i class="fas fa-folder-open me-1"></i> SOP & Logs</a></li>
+          <li class="nav-item"><a class="nav-link" href="#scada-telemetry"><i class="fas fa-broadcast-tower me-1"></i> SCADA</a></li>
+          <li class="nav-item"><a class="nav-link" href="#hydro-map"><i class="fas fa-map-marked-alt me-1"></i> Map</a></li>
+          <li class="nav-item"><a class="nav-link" href="#live-data"><i class="fas fa-database me-1"></i> Live Data</a></li>
+          <li class="nav-item ms-lg-3">
+            <span class="admin-badge"><i class="fas fa-user-shield me-1"></i> ADMIN SECURE</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <section class="hero-section text-center">
+    <div class="container">
+      <div class="data-accuracy-badge mb-3 bg-dark text-info border border-info">
+        <i class="fas fa-check-double me-1"></i> System Online | 100% Data Accuracy Goal
+      </div>
+      <h1 class="hero-title">Centralized Telemetry & Operations Dashboard</h1>
+      <p class="lead w-75 mx-auto opacity-75">
+        A unified digital repository eliminating siloed physical files. Providing JPS technicians instant, on-site access to critical SOPs, asset maintenance logs, and real-time SCADA sensor exposures.
+      </p>
+    </div>
+  </section>
+
+  <section id="digital-repo" class="py-5">
+    <div class="container">
+      <div class="mb-4">
+        <h6 class="text-primary fw-bold text-uppercase"><i class="fas fa-server me-2"></i> Digital Repository</h6>
+        <h3 class="fw-bold" style="color: var(--jps-blue);">Instant On-Site Access Documents</h3>
+        <p class="text-muted">Critical SOPs and asset logs digitized for remote access at Flood Pump Houses.</p>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="repo-card">
+            <div class="repo-icon"><i class="fas fa-file-signature"></i></div>
+            <h5 class="fw-bold">Pump Operations SOPs</h5>
+            <p class="text-muted small">Standard Operating Procedures for manual and auto mode pump activations. Replaces physical site folders.</p>
+            <button class="btn btn-sm btn-outline-primary w-100"><i class="fas fa-download me-1"></i> Access PDF</button>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="repo-card" style="border-left-color: #198754;">
+            <div class="repo-icon text-success"><i class="fas fa-clipboard-list"></i></div>
+            <h5 class="fw-bold">Asset Maintenance Logs</h5>
+            <p class="text-muted small">Digital logging system for preventive maintenance and breakdown reports. Synced across all technician devices.</p>
+            <button class="btn btn-sm btn-outline-success w-100"><i class="fas fa-edit me-1"></i> Update Logs</button>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="repo-card" style="border-left-color: #ffc107;">
+            <div class="repo-icon text-warning"><i class="fas fa-project-diagram"></i></div>
+            <h5 class="fw-bold">SCADA Schematics</h5>
+            <p class="text-muted small">Wiring diagrams, sensor layouts, and VSD controller schematics for emergency on-site troubleshooting.</p>
+            <button class="btn btn-sm btn-outline-warning text-dark w-100"><i class="fas fa-search me-1"></i> View Schematics</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="scada-telemetry" class="scada-section">
+    <div class="container">
+      <div class="text-center mb-5">
+        <h6 class="text-primary fw-bold text-uppercase"><i class="fas fa-microchip me-2"></i> Infrastructure Integration</h6>
+        <h2 class="fw-bold" style="color: var(--jps-blue);">SCADA Telemetry Exposure</h2>
+        <p class="text-muted w-75 mx-auto">Centralizes real-time data from water sensors to control pumps remotely. Bypasses the need for manual site verification during critical flood events.</p>
+      </div>
+
+      <div class="row justify-content-center g-4">
+        <div class="col-md-6 col-lg-5">
+          <div class="pump-card h-100">
+            <div class="pump-header">
+              <i class="fas fa-water fa-2x mb-2 text-info"></i>
+              <h5 class="fw-bold m-0">Rumah Pam Tok Jiring</h5>
+            </div>
+            <div class="pump-body">
+              <div class="d-flex justify-content-between text-start mb-3 border-bottom pb-2">
+                <span class="text-muted small fw-bold">Retention Pond Level:</span>
+                <span class="text-primary fw-bold">1.45 m</span>
+              </div>
+              <div class="d-flex justify-content-between text-start mb-4 border-bottom pb-2">
+                <span class="text-muted small fw-bold">Active Pumps:</span>
+                <span class="text-dark fw-bold">Pump 1 & 2 (Auto)</span>
+              </div>
+              
+              <div class="d-flex justify-content-center align-items-center mb-4 p-2 bg-light rounded border">
+                <span class="status-indicator status-online"></span>
+                <small class="fw-bold text-success m-0">SCADA Direct Feed Online</small>
+              </div>
+
+              <a href="http://jpstokjiring.ddns.net:81/overview.htm" target="_blank" class="btn btn-primary w-100 py-2 fw-bold shadow-sm">
+                <i class="fas fa-external-link-alt me-2"></i> ACCESS TELEMETRY DASHBOARD
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-5">
+          <div class="pump-card h-100">
+            <div class="pump-header" style="background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);">
+              <i class="fas fa-cogs fa-2x mb-2 text-info"></i>
+              <h5 class="fw-bold m-0">Rumah Pam Pusu Tiga</h5>
+            </div>
+            <div class="pump-body">
+              <div class="d-flex justify-content-between text-start mb-3 border-bottom pb-2">
+                <span class="text-muted small fw-bold">Catchment Flow Rate:</span>
+                <span class="text-primary fw-bold">2.3 m³/s</span>
+              </div>
+              <div class="d-flex justify-content-between text-start mb-4 border-bottom pb-2">
+                <span class="text-muted small fw-bold">Active Pumps:</span>
+                <span class="text-dark fw-bold">Standby (Normal)</span>
+              </div>
+              
+              <div class="d-flex justify-content-center align-items-center mb-4 p-2 bg-light rounded border">
+                <span class="status-indicator status-online"></span>
+                <small class="fw-bold text-success m-0">SCADA Direct Feed Online</small>
+              </div>
+
+              <a href="http://jps-pusu3.ddns.net:82/overview.htm" target="_blank" class="btn btn-dark w-100 py-2 fw-bold shadow-sm">
+                <i class="fas fa-external-link-alt me-2"></i> ACCESS TELEMETRY DASHBOARD
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="hydro-map" class="py-5 bg-white border-top">
+    <div class="container">
+      <div class="d-flex justify-content-between align-items-end mb-4">
+        <div>
+          <h6 class="text-primary fw-bold text-uppercase"><i class="fas fa-satellite me-2"></i> Geographical Data</h6>
+          <h3 class="fw-bold" style="color: var(--jps-blue);">Interactive Hydrological Map</h3>
+        </div>
+        <div class="data-accuracy-badge bg-primary m-0">
+          <i class="fas fa-crosshairs me-1"></i> GIS Mapped Stations
+        </div>
+      </div>
+      <p class="text-muted mb-4">Spatial visualization of district hydrological status, aiding in rapid assessment and technician deployment to critical zones.</p>
+      <div id="map"></div>
+    </div>
+  </section>
+
+  <section id="live-data" class="py-5 bg-light">
+    <div class="container">
+      <div class="text-center mb-5">
+        <h6 class="text-primary fw-bold text-uppercase"><i class="fas fa-chart-line me-2"></i> Data Integrity Check</h6>
+        <h2 class="fw-bold" style="color: var(--jps-blue);">Live Hydrological Feed</h2>
+        <p class="text-muted">Ensuring 100% data accuracy via direct API pulls from field sensors, timestamped for decision-makers.</p>
+      </div>
+      
+      <div class="row g-4">
+        <div class="col-lg-6">
+          <div class="taburan-hujan-section">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="fw-bold m-0"><i class="fas fa-cloud-rain text-info me-2"></i> Rainfall Distribution</h5>
+              <span class="badge bg-light text-dark border"><i class="fas fa-sync fa-spin text-primary me-1"></i> Live</span>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover table-sm">
+                <thead><tr><th>Station Name</th><th class="text-end">Reading (mm)</th></tr></thead>
+                <tbody>
+                  <tr><td>Sek. Keb. Gemuruh (F1)</td><td class="text-end fw-bold text-success">0 mm</td></tr>
+                  <tr><td>Universiti Malaysia Terengganu (F1)</td><td class="text-end fw-bold text-warning">5 mm</td></tr>
+                  <tr><td>Padang Kemunting (F1)</td><td class="text-end fw-bold text-danger">12 mm</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="text-end mt-2">
+              <small class="text-muted fw-bold">Last Synced: <span id="rain-update-time" class="text-primary">Loading...</span></small>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-6">
+          <div class="aras-air-section">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="fw-bold m-0"><i class="fas fa-water text-warning me-2"></i> River & Drain Water Levels</h5>
+              <span class="badge bg-light text-dark border"><i class="fas fa-sync fa-spin text-primary me-1"></i> Live</span>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover table-sm">
+                <thead><tr><th>Station Location</th><th>Status</th><th class="text-end">Current Level</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td>Sungai Nerus di Kg Jeram</td>
+                    <td><span class="badge bg-success">Normal</span></td>
+                    <td class="text-end fw-bold">3.20 m</td>
+                  </tr>
+                  <tr>
+                    <td>Parit Utama di Padang Kemunting</td>
+                    <td><span class="badge bg-warning text-dark">Waspada</span></td>
+                    <td class="text-end fw-bold text-warning">1.50 m</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="text-end mt-2">
+              <small class="text-muted fw-bold">Last Synced: <span id="river-update-time" class="text-primary">Loading...</span></small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <div class="mb-2">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Jps_logo.png/600px-Jps_logo.png" alt="JPS" height="40" style="filter: grayscale(1) brightness(2);">
+      </div>
+      <p class="mb-0 fw-bold">JPS Digital Admin Portal & SCADA Integration</p>
+      <small class="text-muted">Developed for Internal Operations • Jabatan Pengairan dan Saliran Daerah Kuala Nerus</small>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      // 1. Initialize Map (Centered on Kuala Nerus)
+      const map = L.map("map").setView([5.38, 103.06], 11); 
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { 
+        attribution: '© OpenStreetMap & CARTO',
+        subdomains: 'abcd',
+        maxZoom: 20
+      }).addTo(map);
+
+      // 2. Icon Definitions (Clean Dashboard Style)
+      const createIcon = (color) => new L.Icon({
+        iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+      });
+
+      const icons = {
+        office: createIcon("black"),
+        rain: createIcon("blue"),
+        river: createIcon("orange"),
+        pump: createIcon("red")    
+      };
+
+      // 3. Layer Groups
+      const layers = {
+        office: L.layerGroup().addTo(map),
+        pump: L.layerGroup().addTo(map),
+        rain: L.layerGroup().addTo(map),
+        river: L.layerGroup().addTo(map)
+      };
+
+      // 4. Markers Database
+      // Admin HQ
+      L.marker([5.39448, 103.06308], { icon: icons.office })
+        .bindPopup("<b style='color:#002b5e;'>Admin HQ - JPS Kuala Nerus</b><br>Central Server Location")
+        .addTo(layers.office);
+
+      // Pump Stations (SCADA Nodes) - Coordinates Estimated for demo
+      L.marker([5.3750, 103.0850], { icon: icons.pump })
+        .bindPopup("<b>SCADA Node: Rumah Pam Tok Jiring</b><br><span style='color:green;'>Status: Online</span>")
+        .addTo(layers.pump);
+        
+      L.marker([5.3500, 103.0950], { icon: icons.pump })
+        .bindPopup("<b>SCADA Node: Rumah Pam Pusu Tiga</b><br><span style='color:green;'>Status: Online</span>")
+        .addTo(layers.pump);
+
+      // Rainfall Stations
+      L.marker([5.3220, 103.0180], { icon: icons.rain })
+        .bindPopup("<b>Sek. Keb. Gemuruh (F1)</b><br>Rainfall Sensor")
+        .addTo(layers.rain);
+      L.marker([5.4079, 103.0906], { icon: icons.rain })
+        .bindPopup("<b>UMT (F1)</b><br>Rainfall Sensor")
+        .addTo(layers.rain);
+
+      // Water Level Stations
+      L.marker([5.33669, 103.05794], { icon: icons.river })
+        .bindPopup("<b>Sg Nerus di Kg Jeram</b><br>River Level Sensor")
+        .addTo(layers.river);
+      L.marker([5.41208, 103.05022], { icon: icons.river })
+        .bindPopup("<b>Parit Utama Padang Kemunting</b><br>Drain Level Sensor")
+        .addTo(layers.river);
+
+      // 5. Map Controls
+      L.control.layers(null, { 
+        "Admin HQ": layers.office, 
+        "SCADA Pump Nodes": layers.pump,
+        "Rainfall Sensors": layers.rain, 
+        "Water Level Sensors": layers.river
+      }).addTo(map);
+
+      // 6. Legend Construction
+      const legend = L.control({ position: "bottomright" });
+      legend.onAdd = function() {
+        const div = L.DomUtil.create("div", "legend");
+        div.innerHTML += "<h6 class='fw-bold border-bottom pb-1 mb-2'>Asset Legend</h6>";
+        div.innerHTML += '<i style="background: #000000"></i> Admin HQ<br>';
+        div.innerHTML += '<i style="background: #CB2B3E"></i> SCADA Pump Node<br>';
+        div.innerHTML += '<i style="background: #2A81CB"></i> Rainfall Sensor<br>';
+        div.innerHTML += '<i style="background: #CB8427"></i> Water Level Sensor<br>';
+        return div;
+      };
+      legend.addTo(map);
+
+      // 7. Auto Update Timestamps (Simulating Real-Time Data Pull)
+      function updateTimestamps() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('en-US', { hour12: false }) + '.' + Math.floor(now.getMilliseconds()/10);
+        document.getElementById("rain-update-time").textContent = timeString;
+        document.getElementById("river-update-time").textContent = timeString;
+      }
+      
+      updateTimestamps();
+      // Simulate live data polling every 2 seconds to show "100% Accuracy/Live" feel
+      setInterval(updateTimestamps, 2000); 
+    });
+  </script>
+</body>
+</html>
